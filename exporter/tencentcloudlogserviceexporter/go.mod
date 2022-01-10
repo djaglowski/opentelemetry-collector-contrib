@@ -8,7 +8,7 @@ require (
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.286
 	go.opentelemetry.io/collector v0.38.1-0.20211103215828-cffbecb2ac9e
 	go.opentelemetry.io/collector/model v0.38.1-0.20211103215828-cffbecb2ac9e
-	go.uber.org/zap v1.19.1
+	go.uber.org/zap v1.20.0
 )
 
 require (
