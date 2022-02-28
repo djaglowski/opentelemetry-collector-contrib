@@ -6,7 +6,7 @@ require (
 	github.com/client9/misspell v0.3.4
 	github.com/golangci/golangci-lint v1.43.0
 	github.com/google/addlicense v1.0.0
-	github.com/jstemmer/go-junit-report v0.9.1
+	github.com/jstemmer/go-junit-report v1.0.0
 	github.com/pavius/impi v0.0.3
 	github.com/prometheus/common v0.29.0 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
