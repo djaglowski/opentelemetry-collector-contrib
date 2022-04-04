@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/open-telemetry/opentelemetry-log-collection/entry"
+
 	"github.com/open-telemetry/opentelemetry-log-collection/pipeline"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config"
@@ -82,7 +84,34 @@ func (r *receiver) Start(ctx context.Context, host component.Host) error {
 	// channel. In order to prevent backpressure, reading from the converter
 	// channel and batching are done in those 2 goroutines.
 
+	// TODO remove this
+	r.wg.Add(1)
+	go r.simulatedInputLoop(rctx)
+
 	return nil
+}
+
+// simulatedInputLoop generates log entries and inserts them into the pipeline
+func (r *receiver) simulatedInputLoop(ctx context.Context) {
+	defer r.wg.Done()
+
+	firstOp := r.pipe.Operators()[0]
+	i := 0
+
+	// Don't create done channel on every iteration.
+	doneChan := ctx.Done()
+	for {
+		select {
+		case <-doneChan:
+			r.logger.Debug("Simulated input loop stopped")
+			return
+		default:
+			ent := entry.New()
+			ent.Body = fmt.Sprintf(`{"time":"2022-03-16","sev":"INFO","msg":"blahblah","num":"%d"}`, i)
+			firstOp.Process(ctx, ent)
+			i++
+		}
+	}
 }
 
 // emitterLoop reads the log entries produced by the emitter and batches them

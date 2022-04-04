@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"github.com/open-telemetry/opentelemetry-log-collection/operator"
+	"github.com/open-telemetry/opentelemetry-log-collection/operator/transformer/noop"
 	"github.com/open-telemetry/opentelemetry-log-collection/pipeline"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config"
@@ -49,18 +50,22 @@ func createLogsReceiver(logReceiverType LogReceiverType) component.CreateLogsRec
 		cfg config.Receiver,
 		nextConsumer consumer.Logs,
 	) (component.LogsReceiver, error) {
-		inputCfg, err := logReceiverType.DecodeInputConfig(cfg)
-		if err != nil {
-			return nil, err
-		}
+		// inputCfg, err := logReceiverType.DecodeInputConfig(cfg)
+		// if err != nil {
+		// 	return nil, err
+		// }
 
 		baseCfg := logReceiverType.BaseConfig(cfg)
-		operatorCfgs, err := baseCfg.decodeOperatorConfigs()
+		operators, err := baseCfg.decodeOperatorConfigs()
 		if err != nil {
 			return nil, err
 		}
 
-		operators := append([]operator.Config{*inputCfg}, operatorCfgs...)
+		// operators := append([]operator.Config{*inputCfg}, operatorCfgs...)
+		if len(operators) == 0 {
+			noperator := operator.Config{Builder: noop.NewNoopOperatorConfig("noop_consumer")}
+			operators = append([]operator.Config{noperator}, operators...)
+		}
 
 		emitterOpts := []LogEmitterOption{
 			LogEmitterWithLogger(params.Logger.Sugar()),

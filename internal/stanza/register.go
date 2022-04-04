@@ -28,6 +28,7 @@ import (
 	_ "github.com/open-telemetry/opentelemetry-log-collection/operator/transformer/filter"
 	_ "github.com/open-telemetry/opentelemetry-log-collection/operator/transformer/flatten"
 	_ "github.com/open-telemetry/opentelemetry-log-collection/operator/transformer/move"
+	_ "github.com/open-telemetry/opentelemetry-log-collection/operator/transformer/noop"
 	_ "github.com/open-telemetry/opentelemetry-log-collection/operator/transformer/recombine"
 	_ "github.com/open-telemetry/opentelemetry-log-collection/operator/transformer/retain"
 	_ "github.com/open-telemetry/opentelemetry-log-collection/operator/transformer/router"
