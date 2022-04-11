@@ -7,8 +7,8 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/stretchr/testify v1.7.1
 	go.opencensus.io v0.23.0
-	go.opentelemetry.io/collector v0.48.0
-	go.opentelemetry.io/collector/model v0.48.0
+	go.opentelemetry.io/collector v0.48.1-0.20220411140058-87ad1aecfd7d
+	go.opentelemetry.io/collector/model v0.48.1-0.20220411140058-87ad1aecfd7d
 	go.uber.org/zap v1.21.0
 
 )
