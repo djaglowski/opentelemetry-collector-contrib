@@ -155,7 +155,7 @@ func waitForToken(t *testing.T, c chan *emitParams, expected []byte) {
 	case call := <-c:
 		require.Equal(t, expected, call.token)
 	case <-time.After(3 * time.Second):
-		require.FailNow(t, "Timed out waiting for token", expected)
+		require.FailNow(t, "Timed out waiting for token", string(expected))
 	}
 }
 
@@ -180,8 +180,8 @@ func expectNoTokens(t *testing.T, c chan *emitParams) {
 
 func expectNoTokensUntil(t *testing.T, c chan *emitParams, d time.Duration) {
 	select {
-	case token := <-c:
-		require.FailNow(t, "Received unexpected message", "Message: %s", token)
+	case call := <-c:
+		require.FailNow(t, "Received unexpected message", "Message: %s", string(call.token))
 	case <-time.After(d):
 	}
 }

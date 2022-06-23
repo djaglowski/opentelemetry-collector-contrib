@@ -201,6 +201,21 @@ func TestFingerprintStartsWith(t *testing.T) {
 			a:    "hello",
 			b:    "world",
 		},
+		{
+			name: "single-newline",
+			a:    "\nhello",
+			b:    "\nhelloworld",
+		},
+		{
+			name: "double-newline",
+			a:    "\n\nhello",
+			b:    "\n\nhelloworld",
+		},
+		{
+			name: "contains-newline",
+			a:    "foo\nbar",
+			b:    "foo\nbar\nhelloworld",
+		},
 	}
 
 	for _, tc := range cases {
