@@ -19,6 +19,7 @@ import (
 	"math"
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -622,6 +623,48 @@ func makeTestEntry(field entry.Field, value interface{}) *entry.Entry {
 	e := entry.New()
 	_ = e.Set(field, value)
 	return e
+}
+
+func TestUnmarshal(t *testing.T) {
+	operatortest.ConfigUnmarshalTests{
+		DefaultConfig: defaultTimeCfg(),
+		TestsFile:     filepath.Join(".", "testdata", "time", "config.yaml"),
+		Tests: []operatortest.ConfigUnmarshalTest{
+			{
+				Name: "parse_from",
+				Expect: func() *TimeParser {
+					cfg := defaultTimeCfg()
+					newParse := entry.NewBodyField("from")
+					cfg.ParseFrom = &newParse
+					return cfg
+				}(),
+			},
+			{
+				Name: "layout",
+				Expect: func() *TimeParser {
+					cfg := defaultTimeCfg()
+					cfg.Layout = "%Y-%m-%d"
+					return cfg
+				}(),
+			},
+			{
+				Name: "layout_type",
+				Expect: func() *TimeParser {
+					cfg := defaultTimeCfg()
+					cfg.LayoutType = "epoch"
+					return cfg
+				}(),
+			},
+			{
+				Name: "location",
+				Expect: func() *TimeParser {
+					cfg := defaultTimeCfg()
+					cfg.Location = "America/Shiprock"
+					return cfg
+				}(),
+			},
+		},
+	}.Run(t)
 }
 
 type timeConfigTestCase struct {

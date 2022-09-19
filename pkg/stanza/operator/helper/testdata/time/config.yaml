@@ -1,0 +1,8 @@
+layout_type:
+  layout_type: epoch
+layout:
+  layout: '%Y-%m-%d'
+location:
+  location: America/Shiprock
+parse_from:
+  parse_from: body.from

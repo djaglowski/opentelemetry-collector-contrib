@@ -22,13 +22,14 @@ import (
 	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/confmap"
 	"go.opentelemetry.io/collector/confmap/confmaptest"
+	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/operator"
 )
 
 // ConfigUnmarshalTest is used for testing golden configs
 type ConfigUnmarshalTests struct {
-	DefaultConfig operator.Builder
+	DefaultConfig interface{}
 	TestsFile     string
 	Tests         []ConfigUnmarshalTest
 }
@@ -51,14 +52,26 @@ func (c ConfigUnmarshalTests) Run(t *testing.T) {
 			require.NoError(t, err)
 			require.NotZero(t, len(testConfMap.AllKeys()), fmt.Sprintf("config not found: '%s'", tc.Name))
 
-			cfg := newAnyOpConfig(c.DefaultConfig)
-			err = config.UnmarshalReceiver(testConfMap, cfg)
-
-			if tc.ExpectErr {
-				require.Error(t, err)
+			var anyOpCfg *anyOpConfig
+			var anyStCfg *anyStructConfig
+			testCfg, opTest := c.DefaultConfig.(operator.Builder)
+			if opTest {
+				anyOpCfg = newAnyOpConfig(testCfg)
 			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.Expect, cfg.Operator.Builder)
+				anyStCfg = newAnyStructConfig(c.DefaultConfig)
+				anyOpCfg = newAnyOpConfig(anyStCfg)
+				require.NoError(t, testConfMap.Merge(confmapTypeOverride))
+			}
+
+			err = config.UnmarshalReceiver(testConfMap, anyOpCfg)
+
+			switch {
+			case tc.ExpectErr:
+				require.Error(t, err)
+			case opTest:
+				require.Equal(t, tc.Expect, anyOpCfg.Operator.Builder)
+			default:
+				require.Equal(t, tc.Expect, anyStCfg.TestStruct)
 			}
 		})
 	}
@@ -78,4 +91,45 @@ func newAnyOpConfig(opCfg operator.Builder) *anyOpConfig {
 
 func (a *anyOpConfig) Unmarshal(component *confmap.Conf) error {
 	return a.Operator.Unmarshal(component)
+}
+
+// anyStructConfig is a wrapper that satisfies the operator.Builder
+// interface. The interface is not meant to be called, but allows
+// any struct to be unmarshaled via confmap.UnmarshalReceiver
+type anyStructConfig struct {
+	OpType     string      `mapstructure:"type"`
+	TestStruct interface{} `mapstructure:"test_struct"`
+}
+
+func newAnyStructConfig(testStruct interface{}) *anyStructConfig {
+	return &anyStructConfig{TestStruct: testStruct}
+}
+
+var _ operator.Builder = (*anyStructConfig)(nil)
+
+func (c *anyStructConfig) Build(_ *zap.SugaredLogger) (operator.Operator, error) {
+	return nil, nil
+}
+
+func (c *anyStructConfig) ID() string {
+	return ""
+}
+
+func (c *anyStructConfig) SetID(id string) {
+}
+
+func (c *anyStructConfig) Type() string {
+	return c.OpType
+}
+
+// This is used to satisfy the requirement that "type" be set in the confmap
+var confmapTypeOverride = confmap.NewFromStringMap(
+	map[string]interface{}{
+		"type": "any_op",
+	},
+)
+
+// This registers the fake operator in the operator registry so that it can be unmarshaled
+func init() {
+	operator.Register("any_op", func() operator.Builder { return newAnyStructConfig(nil) })
 }
