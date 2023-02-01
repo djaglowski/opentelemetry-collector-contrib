@@ -135,20 +135,27 @@ func (m *Manager) consume(ctx context.Context, paths []string) {
 		wg.Add(1)
 		go func(r *Reader) {
 			defer wg.Done()
-			if r.ReadToEnd(ctx) && m.deleteAfterRead {
+			r.ReadToEnd(ctx)
+			if m.deleteAfterRead && r.eof {
 				r.Close()
 				if err := os.Remove(r.file.Name()); err != nil {
 					m.Errorf("could not delete %s", r.file.Name())
 				}
-				r.file = nil
 			}
 		}(reader)
 	}
 	wg.Wait()
 
 	if m.deleteAfterRead {
-		// no need to track files since they were deleted
-		return
+		unfinished := make([]*Reader, 0, len(readers))
+		for _, r := range readers {
+			if r.eof {
+				r.Close()
+			} else {
+				unfinished = append(unfinished, r)
+			}
+		}
+		readers = unfinished
 	}
 
 	// Any new files that appear should be consumed entirely

@@ -1187,8 +1187,6 @@ func TestEncodings(t *testing.T) {
 }
 
 func TestDeleteAfterRead(t *testing.T) {
-	t.Parallel()
-
 	files := 10
 	linesPerFile := 10
 	totalLines := files * linesPerFile
@@ -1217,6 +1215,11 @@ func TestDeleteAfterRead(t *testing.T) {
 	require.NoError(t, featuregate.GlobalRegistry().Apply(map[string]bool{
 		allowFileDeletion: true,
 	}))
+	defer func() {
+		require.NoError(t, featuregate.GlobalRegistry().Apply(map[string]bool{
+			allowFileDeletion: false,
+		}))
+	}()
 
 	cfg := NewConfig().includeDir(tempDir)
 	cfg.StartAt = "beginning"
@@ -1233,4 +1236,81 @@ func TestDeleteAfterRead(t *testing.T) {
 		_, err := os.Stat(temp.Name())
 		require.True(t, os.IsNotExist(err))
 	}
+}
+
+func TestDeleteAfterRead_SkipPartials(t *testing.T) {
+	bytesPerLine := 100
+	shortFileLine := tokenWithLength(bytesPerLine - 1)
+	longFileLines := 100000
+	longFileSize := longFileLines * bytesPerLine
+
+	require.NoError(t, featuregate.GlobalRegistry().Apply(map[string]bool{
+		allowFileDeletion: true,
+	}))
+	defer func() {
+		require.NoError(t, featuregate.GlobalRegistry().Apply(map[string]bool{
+			allowFileDeletion: false,
+		}))
+	}()
+
+	tempDir := t.TempDir()
+	cfg := NewConfig().includeDir(tempDir)
+	cfg.StartAt = "beginning"
+	cfg.DeleteAfterRead = true
+	emitCalls := make(chan *emitParams, longFileLines+1)
+	operator := buildTestManagerWithEmit(t, cfg, emitCalls)
+	operator.persister = testutil.NewMockPersister("test")
+
+	shortFile := openTemp(t, tempDir)
+	shortFile.WriteString(string(shortFileLine) + "\n")
+	require.NoError(t, shortFile.Close())
+
+	longFile := openTemp(t, tempDir)
+	for line := 0; line < longFileLines; line++ {
+		longFile.WriteString(string(tokenWithLength(bytesPerLine-1)) + "\n")
+	}
+	require.NoError(t, longFile.Close())
+
+	// Verify we have no checkpointed files
+	require.Equal(t, 0, len(operator.knownFiles))
+
+	// Wait until the only line in the short file and
+	// at least one line from the long file have been consumed
+	var shortOne, longOne bool
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		operator.poll(ctx)
+	}()
+
+	for !(shortOne && longOne) {
+		if line := waitForEmit(t, emitCalls); string(line.token) == string(shortFileLine) {
+			shortOne = true
+		} else {
+			longOne = true
+		}
+	}
+
+	// Stop consuming before long file has been fully consumed
+	cancel()
+	wg.Wait()
+
+	// short file was fully consumed and should have been deleted
+	_, err := os.Stat(shortFile.Name())
+	require.Error(t, err)
+	require.True(t, os.IsNotExist(err))
+
+	// long file was partially consumed and should NOT have been deleted
+	_, err = os.Stat(longFile.Name())
+	require.NoError(t, err)
+
+	// Verify that only long file is remembered and that (0 < offset < fileSize)
+	require.Equal(t, 1, len(operator.knownFiles))
+	reader := operator.knownFiles[0]
+	require.Equal(t, longFile.Name(), reader.file.Name())
+	require.Greater(t, reader.Offset, int64(0))
+	require.Less(t, reader.Offset, int64(longFileSize))
 }

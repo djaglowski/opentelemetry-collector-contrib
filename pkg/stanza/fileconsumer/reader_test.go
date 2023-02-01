@@ -117,7 +117,7 @@ func TestTokenizationTooLong(t *testing.T) {
 	r, err := f.newReaderBuilder().withFile(temp).build()
 	require.NoError(t, err)
 
-	require.True(t, r.ReadToEnd(context.Background()))
+	r.ReadToEnd(context.Background())
 
 	for _, expected := range expected {
 		require.Equal(t, expected, readToken(t, emitChan))
@@ -149,7 +149,7 @@ func TestTokenizationTooLongWithLineStartPattern(t *testing.T) {
 	r, err := f.newReaderBuilder().withFile(temp).build()
 	require.NoError(t, err)
 
-	require.True(t, r.ReadToEnd(context.Background()))
+	r.ReadToEnd(context.Background())
 
 	for _, expected := range expected {
 		require.Equal(t, expected, readToken(t, emitChan))

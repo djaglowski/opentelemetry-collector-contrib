@@ -43,6 +43,7 @@ type Reader struct {
 	generation     int
 	file           *os.File
 	fileAttributes *FileAttributes
+	eof            bool
 }
 
 // offsetToEnd sets the starting offset
@@ -57,10 +58,11 @@ func (r *Reader) offsetToEnd() error {
 
 // ReadToEnd will read until the end of the file
 // Returns true if end of file was successfully reached, false otherwise
-func (r *Reader) ReadToEnd(ctx context.Context) bool {
+func (r *Reader) ReadToEnd(ctx context.Context) {
+	r.eof = false
 	if _, err := r.file.Seek(r.Offset, 0); err != nil {
 		r.Errorw("Failed to seek", zap.Error(err))
-		return false
+		return
 	}
 
 	scanner := NewPositionalScanner(r, r.maxLogSize, r.Offset, r.splitFunc)
@@ -69,15 +71,15 @@ func (r *Reader) ReadToEnd(ctx context.Context) bool {
 	for {
 		select {
 		case <-ctx.Done():
-			return false
+			return
 		default:
 		}
 
-		ok := scanner.Scan()
-		if !ok {
+		if ok := scanner.Scan(); !ok {
 			if err := scanner.getError(); err != nil {
 				r.Errorw("Failed during scan", zap.Error(err))
 			}
+			r.eof = true
 			break
 		}
 
@@ -90,7 +92,6 @@ func (r *Reader) ReadToEnd(ctx context.Context) bool {
 
 		r.Offset = scanner.Pos()
 	}
-	return true
 }
 
 // Close will close the file
