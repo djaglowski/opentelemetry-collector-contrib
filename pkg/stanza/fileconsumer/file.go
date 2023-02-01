@@ -135,12 +135,12 @@ func (m *Manager) consume(ctx context.Context, paths []string) {
 		wg.Add(1)
 		go func(r *Reader) {
 			defer wg.Done()
-			r.ReadToEnd(ctx)
-			if m.deleteAfterRead {
+			if r.ReadToEnd(ctx) && m.deleteAfterRead {
 				r.Close()
 				if err := os.Remove(r.file.Name()); err != nil {
 					m.Errorf("could not delete %s", r.file.Name())
 				}
+				r.file = nil
 			}
 		}(reader)
 	}
