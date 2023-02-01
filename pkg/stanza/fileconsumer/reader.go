@@ -56,10 +56,11 @@ func (r *Reader) offsetToEnd() error {
 }
 
 // ReadToEnd will read until the end of the file
-func (r *Reader) ReadToEnd(ctx context.Context) {
+// Returns true if end of file was successfully reached, false otherwise
+func (r *Reader) ReadToEnd(ctx context.Context) bool {
 	if _, err := r.file.Seek(r.Offset, 0); err != nil {
 		r.Errorw("Failed to seek", zap.Error(err))
-		return
+		return false
 	}
 
 	scanner := NewPositionalScanner(r, r.maxLogSize, r.Offset, r.splitFunc)
@@ -68,7 +69,7 @@ func (r *Reader) ReadToEnd(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return false
 		default:
 		}
 
@@ -89,6 +90,7 @@ func (r *Reader) ReadToEnd(ctx context.Context) {
 
 		r.Offset = scanner.Pos()
 	}
+	return true
 }
 
 // Close will close the file
