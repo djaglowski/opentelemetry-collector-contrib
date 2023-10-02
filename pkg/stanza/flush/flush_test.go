@@ -35,7 +35,9 @@ func TestNewlineSplitFunc(t *testing.T) {
 			steps: []splittest.Step{
 				splittest.ExpectAdvanceToken(len("complete line\n"), "complete line"),
 				splittest.ExpectReadMore(),
-				splittest.Eventually(splittest.ExpectToken("incomplete"), 150*time.Millisecond, 10*time.Millisecond),
+				splittest.ExpectToken("incomplete",
+					splittest.WithMaxDelay(150*time.Millisecond, 10*time.Millisecond),
+				),
 			},
 		},
 	}

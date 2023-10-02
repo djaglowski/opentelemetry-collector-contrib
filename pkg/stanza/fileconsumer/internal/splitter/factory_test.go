@@ -53,9 +53,8 @@ func TestFactorySplitFunc(t *testing.T) {
 				splittest.ExpectAdvanceToken(len(" hello \n"), " hello "),
 				splittest.ExpectAdvanceToken(len(" world \n"), " world "),
 				splittest.ExpectReadMore(),
-				splittest.Eventually(
-					splittest.ExpectAdvanceToken(len(" extra "), " extra "), 200*time.Millisecond, 10*time.Millisecond,
-				),
+				splittest.ExpectAdvanceToken(len(" extra "), " extra ",
+					splittest.WithMaxDelay(200*time.Millisecond, 10*time.Millisecond)),
 			},
 		},
 		{
@@ -68,9 +67,8 @@ func TestFactorySplitFunc(t *testing.T) {
 				splittest.ExpectAdvanceToken(len(" hello \n"), "hello"),
 				splittest.ExpectAdvanceToken(len(" world \n"), "world"),
 				splittest.ExpectReadMore(),
-				splittest.Eventually(
-					splittest.ExpectAdvanceToken(len(" extra "), "extra"), 200*time.Millisecond, 10*time.Millisecond,
-				),
+				splittest.ExpectAdvanceToken(len(" extra "), "extra",
+					splittest.WithMaxDelay(200*time.Millisecond, 10*time.Millisecond)),
 			},
 		},
 	}

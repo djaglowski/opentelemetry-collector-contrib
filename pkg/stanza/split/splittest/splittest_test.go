@@ -120,7 +120,15 @@ func TestNew(t *testing.T) {
 				ExpectAdvanceToken(len("foo bar.\n"), "foo bar."),
 				ExpectAdvanceToken(len("hello world!\n"), "hello world!"),
 				ExpectReadMore(),
-				Eventually(ExpectToken("incomplete line"), 150*time.Millisecond, 10*time.Millisecond),
+				ExpectToken("incomplete line", WithMaxDelay(150*time.Millisecond, 10*time.Millisecond)),
+			},
+		},
+		{
+			name:      "ScanLinesWithExcessiveBuffer",
+			splitFunc: bufio.ScanLines,
+			input:     []byte("this is a long line but the buffer is longer"),
+			steps: []Step{
+				ExpectToken("this is a long line but the buffer is longer", WithInitialBufferSize(1000)),
 			},
 		},
 	}
