@@ -30,14 +30,12 @@ func (t traceStatements) Capabilities() consumer.Capabilities {
 }
 
 func (t traceStatements) ConsumeTraces(ctx context.Context, td ptrace.Traces) (err error) {
-	td.ResourceSpans().Range(func(_ int, rspans ptrace.ResourceSpans) {
-		rspans.ScopeSpans().Range(func(_ int, sspans ptrace.ScopeSpans) {
-			sspans.Spans().Range(func(_ int, span ptrace.Span) {
-				if err != nil {
-					return // Would use RangeWhile instead if available
-				}
+	td.ResourceSpans().RangeIf(func(_ int, rspans ptrace.ResourceSpans) bool {
+		return rspans.ScopeSpans().RangeIf(func(_ int, sspans ptrace.ScopeSpans) bool {
+			return sspans.Spans().RangeIf(func(_ int, span ptrace.Span) bool {
 				tCtx := ottlspan.NewTransformContext(span, sspans.Scope(), rspans.Resource())
 				err = t.Execute(ctx, tCtx)
+				return err == nil
 			})
 		})
 	})

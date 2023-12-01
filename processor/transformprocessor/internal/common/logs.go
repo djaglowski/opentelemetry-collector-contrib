@@ -29,14 +29,12 @@ func (l logStatements) Capabilities() consumer.Capabilities {
 }
 
 func (l logStatements) ConsumeLogs(ctx context.Context, ld plog.Logs) (err error) {
-	ld.ResourceLogs().Range(func(_ int, rlogs plog.ResourceLogs) {
-		rlogs.ScopeLogs().Range(func(_ int, slogs plog.ScopeLogs) {
-			slogs.LogRecords().Range(func(_ int, lr plog.LogRecord) {
-				if err != nil {
-					return // Would use RangeWhile instead if available
-				}
+	ld.ResourceLogs().RangeIf(func(_ int, rlogs plog.ResourceLogs) bool {
+		return rlogs.ScopeLogs().RangeIf(func(_ int, slogs plog.ScopeLogs) bool {
+			return slogs.LogRecords().RangeIf(func(_ int, lr plog.LogRecord) bool {
 				tCtx := ottllog.NewTransformContext(lr, slogs.Scope(), rlogs.Resource())
 				err = l.Execute(ctx, tCtx)
+				return err == nil
 			})
 		})
 	})

@@ -31,14 +31,12 @@ func (m metricStatements) Capabilities() consumer.Capabilities {
 }
 
 func (m metricStatements) ConsumeMetrics(ctx context.Context, md pmetric.Metrics) (err error) {
-	md.ResourceMetrics().Range(func(_ int, rmetrics pmetric.ResourceMetrics) {
-		rmetrics.ScopeMetrics().Range(func(_ int, smetrics pmetric.ScopeMetrics) {
-			smetrics.Metrics().Range(func(_ int, metric pmetric.Metric) {
-				if err != nil {
-					return // Would use RangeWhile instead if available
-				}
+	md.ResourceMetrics().RangeIf(func(_ int, rmetrics pmetric.ResourceMetrics) bool {
+		return rmetrics.ScopeMetrics().RangeIf(func(_ int, smetrics pmetric.ScopeMetrics) bool {
+			return smetrics.Metrics().RangeIf(func(_ int, metric pmetric.Metric) bool {
 				tCtx := ottlmetric.NewTransformContext(metric, smetrics.Metrics(), smetrics.Scope(), rmetrics.Resource())
 				err = m.Execute(ctx, tCtx)
+				return err == nil
 			})
 		})
 	})

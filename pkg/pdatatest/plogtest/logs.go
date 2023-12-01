@@ -39,22 +39,20 @@ func CompareLogs(expected, actual plog.Logs, options ...CompareLogsOption) error
 	var outOfOrderErrs error
 	expectedLogs.Range(func(e int, er plog.ResourceLogs) {
 		var foundMatch bool
-		actualLogs.Range(func(a int, ar plog.ResourceLogs) {
-			if foundMatch {
-				return // Would use RangeWhile instead if available
+		actualLogs.RangeIf(func(a int, ar plog.ResourceLogs) bool {
+			_, alreadyMatched := matchingResources[ar]
+			if alreadyMatched || !reflect.DeepEqual(er.Resource().Attributes().AsRaw(), ar.Resource().Attributes().AsRaw()) {
+				return true
 			}
-			if _, ok := matchingResources[ar]; ok {
-				return
+
+			foundMatch = true
+			matchingResources[ar] = er
+			if e != a {
+				outOfOrderErrs = multierr.Append(outOfOrderErrs,
+					fmt.Errorf(`resources are out of order: resource "%v" expected at index %d, found at index %d`,
+						er.Resource().Attributes().AsRaw(), e, a))
 			}
-			if reflect.DeepEqual(er.Resource().Attributes().AsRaw(), ar.Resource().Attributes().AsRaw()) {
-				foundMatch = true
-				matchingResources[ar] = er
-				if e != a {
-					outOfOrderErrs = multierr.Append(outOfOrderErrs,
-						fmt.Errorf(`resources are out of order: resource "%v" expected at index %d, found at index %d`,
-							er.Resource().Attributes().AsRaw(), e, a))
-				}
-			}
+			return false
 		})
 		if !foundMatch {
 			errs = multierr.Append(errs, fmt.Errorf("missing expected resource: %v", er.Resource().Attributes().AsRaw()))
@@ -108,22 +106,20 @@ func CompareResourceLogs(expected, actual plog.ResourceLogs) error {
 
 	expected.ScopeLogs().Range(func(e int, esl plog.ScopeLogs) {
 		var foundMatch bool
-		actual.ScopeLogs().Range(func(a int, asl plog.ScopeLogs) {
-			if foundMatch {
-				return // Would use RangeWhile instead if available
+		actual.ScopeLogs().RangeIf(func(a int, asl plog.ScopeLogs) bool {
+			_, alreadyMatched := matchingScopeLogs[asl]
+			if alreadyMatched || esl.Scope().Name() != asl.Scope().Name() {
+				return true
 			}
-			if _, ok := matchingScopeLogs[asl]; ok {
-				return
+
+			foundMatch = true
+			matchingScopeLogs[asl] = esl
+			if e != a {
+				outOfOrderErrs = multierr.Append(outOfOrderErrs,
+					fmt.Errorf("scopes are out of order: scope %s expected at index %d, found at index %d",
+						esl.Scope().Name(), e, a))
 			}
-			if esl.Scope().Name() == asl.Scope().Name() {
-				foundMatch = true
-				matchingScopeLogs[asl] = esl
-				if e != a {
-					outOfOrderErrs = multierr.Append(outOfOrderErrs,
-						fmt.Errorf("scopes are out of order: scope %s expected at index %d, found at index %d",
-							esl.Scope().Name(), e, a))
-				}
-			}
+			return false
 		})
 		if !foundMatch {
 			errs = multierr.Append(errs, fmt.Errorf("missing expected scope: %s", esl.Scope().Name()))
@@ -173,22 +169,20 @@ func CompareScopeLogs(expected, actual plog.ScopeLogs) error {
 	var outOfOrderErrs error
 	expected.LogRecords().Range(func(e int, elr plog.LogRecord) {
 		var foundMatch bool
-		actual.LogRecords().Range(func(a int, alr plog.LogRecord) {
-			if foundMatch {
-				return // Would use RangeWhile instead if available
+		actual.LogRecords().RangeIf(func(a int, alr plog.LogRecord) bool {
+			_, alreadyMatched := matchingLogRecords[alr]
+			if alreadyMatched || !reflect.DeepEqual(elr.Attributes().AsRaw(), alr.Attributes().AsRaw()) {
+				return true
 			}
-			if _, ok := matchingLogRecords[alr]; ok {
-				return
+
+			foundMatch = true
+			matchingLogRecords[alr] = elr
+			if e != a {
+				outOfOrderErrs = multierr.Append(outOfOrderErrs,
+					fmt.Errorf(`log records are out of order: log record "%v" expected at index %d, found at index %d`,
+						elr.Attributes().AsRaw(), e, a))
 			}
-			if reflect.DeepEqual(elr.Attributes().AsRaw(), alr.Attributes().AsRaw()) {
-				foundMatch = true
-				matchingLogRecords[alr] = elr
-				if e != a {
-					outOfOrderErrs = multierr.Append(outOfOrderErrs,
-						fmt.Errorf(`log records are out of order: log record "%v" expected at index %d, found at index %d`,
-							elr.Attributes().AsRaw(), e, a))
-				}
-			}
+			return false
 		})
 		if !foundMatch {
 			errs = multierr.Append(errs, fmt.Errorf("missing expected log record: %v", elr.Attributes().AsRaw()))

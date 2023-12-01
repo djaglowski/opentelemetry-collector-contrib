@@ -34,34 +34,28 @@ func (r resourceStatements) Capabilities() consumer.Capabilities {
 }
 
 func (r resourceStatements) ConsumeTraces(ctx context.Context, td ptrace.Traces) (err error) {
-	td.ResourceSpans().Range(func(_ int, rspans ptrace.ResourceSpans) {
-		if err != nil {
-			return // Would use RangeWhile instead if available
-		}
+	td.ResourceSpans().RangeIf(func(_ int, rspans ptrace.ResourceSpans) bool {
 		tCtx := ottlresource.NewTransformContext(rspans.Resource())
 		err = r.Execute(ctx, tCtx)
+		return err == nil
 	})
 	return
 }
 
 func (r resourceStatements) ConsumeMetrics(ctx context.Context, md pmetric.Metrics) (err error) {
-	md.ResourceMetrics().Range(func(_ int, rmetrics pmetric.ResourceMetrics) {
-		if err != nil {
-			return // Would use RangeWhile instead if available
-		}
+	md.ResourceMetrics().RangeIf(func(_ int, rmetrics pmetric.ResourceMetrics) bool {
 		tCtx := ottlresource.NewTransformContext(rmetrics.Resource())
 		err = r.Execute(ctx, tCtx)
+		return err == nil
 	})
 	return
 }
 
 func (r resourceStatements) ConsumeLogs(ctx context.Context, ld plog.Logs) (err error) {
-	ld.ResourceLogs().Range(func(_ int, rlogs plog.ResourceLogs) {
-		if err != nil {
-			return // Would use RangeWhile instead if available
-		}
+	ld.ResourceLogs().RangeIf(func(_ int, rlogs plog.ResourceLogs) bool {
 		tCtx := ottlresource.NewTransformContext(rlogs.Resource())
 		err = r.Execute(ctx, tCtx)
+		return err == nil
 	})
 	return
 }
