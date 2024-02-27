@@ -4,15 +4,9 @@
 package fileset // import "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/fileconsumer/internal/fileset"
 
 import (
-	"errors"
-
-	"golang.org/x/exp/slices"
-
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/fileconsumer/internal/fingerprint"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/fileconsumer/internal/reader"
 )
-
-var errFilesetEmpty = errors.New("pop() on empty Fileset")
 
 var (
 	_ Matchable = (*reader.Reader)(nil)
@@ -24,53 +18,77 @@ type Matchable interface {
 }
 
 type Fileset[T Matchable] struct {
-	readers []T
+	readers []map[uint64]T
+	len     int
 }
 
-func New[T Matchable](capacity int) *Fileset[T] {
-	return &Fileset[T]{readers: make([]T, 0, capacity)}
+func New[T Matchable](fpSize int) *Fileset[T] {
+	return &Fileset[T]{readers: make([]map[uint64]T, fpSize+1)}
 }
 
 func (set *Fileset[T]) Len() int {
-	return len(set.readers)
-}
-
-func (set *Fileset[T]) Get() []T {
-	return set.readers
-}
-
-func (set *Fileset[T]) Pop() (T, error) {
-	// return first element from the array and remove it
-	var val T
-	if len(set.readers) == 0 {
-		return val, errFilesetEmpty
-	}
-	r := set.readers[0]
-	set.readers = slices.Delete(set.readers, 0, 1)
-	return r, nil
+	return set.len
 }
 
 func (set *Fileset[T]) Add(readers ...T) {
-	// add open readers
-	set.readers = append(set.readers, readers...)
+	for _, r := range readers {
+		fp := r.GetFingerprint()
+		lenReaders := set.readers[fp.Len()]
+		if lenReaders == nil {
+			set.readers[fp.Len()] = map[uint64]T{fp.Hash(): r}
+			set.len++
+			return
+		}
+		if _, ok := lenReaders[fp.Hash()]; ok {
+			return // already exists
+		}
+		lenReaders[fp.Hash()] = r
+		set.len++
+	}
 }
 
-func (set *Fileset[T]) Match(fp *fingerprint.Fingerprint, cmp func(a, b *fingerprint.Fingerprint) bool) T {
-	var val T
-	for idx, r := range set.readers {
-		if cmp(fp, r.GetFingerprint()) {
-			set.readers = append(set.readers[:idx], set.readers[idx+1:]...)
-			return r
+func (set *Fileset[T]) All() []T {
+	readers := make([]T, 0, set.len)
+	for _, lenReaders := range set.readers {
+		for _, reader := range lenReaders {
+			readers = append(readers, reader)
 		}
 	}
-	return val
+	return readers
 }
 
-// comparators
-func StartsWith(a, b *fingerprint.Fingerprint) bool {
-	return a.StartsWith(b)
+func (set *Fileset[T]) MatchExact(fp *fingerprint.Fingerprint) (m T) {
+	m, _ = set.findExact(fp)
+	return
 }
 
-func Equal(a, b *fingerprint.Fingerprint) bool {
-	return a.Equal(b)
+func (set *Fileset[T]) MatchPrefix(fp *fingerprint.Fingerprint) (m T) {
+	if exact, ok := set.findExact(fp); ok {
+		return exact
+	}
+	for i := len(set.readers) - 1; i > 0; i-- {
+		for hash, match := range set.readers[i] {
+			if fp.StartsWith(match.GetFingerprint()) {
+				delete(set.readers[i], hash)
+				set.len--
+				return match
+			}
+		}
+	}
+	return
+}
+
+func (set *Fileset[T]) findExact(fp *fingerprint.Fingerprint) (m T, ok bool) {
+	if set.readers[fp.Len()] == nil {
+		return
+	}
+
+	m, ok = set.readers[fp.Len()][fp.Hash()]
+	if !ok {
+		return
+	}
+
+	delete(set.readers[fp.Len()], fp.Hash())
+	set.len--
+	return
 }

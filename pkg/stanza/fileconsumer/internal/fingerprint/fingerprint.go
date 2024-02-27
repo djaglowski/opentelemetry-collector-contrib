@@ -50,6 +50,10 @@ func (f *Fingerprint) Len() int {
 	return len(f.firstBytes)
 }
 
+func (f *Fingerprint) Hash() uint64 {
+	return f.firstBytesHash
+}
+
 func (f *Fingerprint) Truncate(size int) {
 	if size < 0 || size > len(f.firstBytes) {
 		return

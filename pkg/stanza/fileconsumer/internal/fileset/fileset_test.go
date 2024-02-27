@@ -6,105 +6,124 @@ package fileset // import "github.com/open-telemetry/opentelemetry-collector-con
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/fileconsumer/internal/fingerprint"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/fileconsumer/internal/reader"
 )
 
-type test[T Matchable] struct {
-	name    string
-	fileset *Fileset[T]
-	ops     []func(t *testing.T, fileset *Fileset[T])
+var (
+	fpEmpty     = fingerprint.New([]byte(""))
+	fpABC       = fingerprint.New([]byte("ABC"))
+	fpABCDEF    = fingerprint.New([]byte("ABCDEF"))
+	fpABCDEFGHI = fingerprint.New([]byte("ABCDEFGHI"))
+	fpXYZ       = fingerprint.New([]byte("XYZ"))
+)
+
+func TestEmpty(t *testing.T) {
+	set := New[*reader.Reader](fingerprint.DefaultSize)
+	assert.Equal(t, 0, set.Len())
+
+	assert.Nil(t, set.MatchExact(fpEmpty), "empty set should have no matches")
+	assert.Equal(t, 0, set.Len(), "empty set should remain at length 0")
+	assert.Nil(t, set.MatchPrefix(fpEmpty), "empty set should have no matches")
+	assert.Equal(t, 0, set.Len(), "empty set should remain at length 0")
+
+	assert.Nil(t, set.MatchExact(fpABCDEF), "empty set should have no matches")
+	assert.Equal(t, 0, set.Len(), "empty set should remain at length 0")
+	assert.Nil(t, set.MatchPrefix(fpABCDEF), "empty set should have no matches")
+	assert.Equal(t, 0, set.Len(), "empty set should remain at length 0")
 }
 
-func (t *test[T]) init() {
-	t.fileset = New[T](10)
+func TestAdd(t *testing.T) {
+	set := New[*reader.Reader](fingerprint.DefaultSize)
+
+	set.Add(newReader(fpABCDEF))
+	assert.Equal(t, 1, set.Len(), "dding a reader should increment the length")
+
+	set.Add(newReader(fpABCDEF))
+	assert.Equal(t, 1, set.Len(), "dding the same reader again should not change the length")
+
+	set.Add(newReader(fpABC))
+	assert.Equal(t, 2, set.Len(), "dding a different reader should increment the length")
+
+	set.Add(newReader(fpABC))
+	assert.Equal(t, 2, set.Len(), "dding the same reader again should not change the length")
+
+	set.Add(newReader(fpXYZ))
+	assert.Equal(t, 3, set.Len(), "dding a different reader of the same length should increment the length")
+
+	set.Add(newReader(fpXYZ))
+	assert.Equal(t, 3, set.Len(), "dding the same reader again should not change the length")
 }
 
-func push[T Matchable](ele ...T) func(t *testing.T, fileset *Fileset[T]) {
-	return func(t *testing.T, fileset *Fileset[T]) {
-		pr := fileset.Len()
-		fileset.Add(ele...)
-		require.Equal(t, pr+len(ele), fileset.Len())
-	}
+func TestAll(t *testing.T) {
+	set := New[*reader.Reader](fingerprint.DefaultSize)
+	assert.Empty(t, set.All(), "empty set should return an empty slice")
+
+	set.Add(newReader(fpABC))
+	all := set.All()
+	assert.Equal(t, 1, len(all), "should not remove elements from the set")
+	assert.Equal(t, fpABC, all[0].GetFingerprint(), "adding a reader should return a slice with the added reader")
+
+	set.Add(newReader(fpABCDEF))
+	all = set.All()
+	assert.Equal(t, 2, len(all), "should not remove elements from the set")
+	assert.Equal(t, fpABC, all[0].GetFingerprint(), "returns set with shorter fingerprints first")
+	assert.Equal(t, fpABCDEF, all[1].GetFingerprint(), "returns set with shorter fingerprints first")
 }
 
-func pop[T Matchable](expectedErr error, expectedElemet T) func(t *testing.T, fileset *Fileset[T]) {
-	return func(t *testing.T, fileset *Fileset[T]) {
-		pr := fileset.Len()
-		el, err := fileset.Pop()
-		if expectedErr == nil {
-			require.NoError(t, err)
-			require.Equal(t, el, expectedElemet)
-			require.Equal(t, pr-1, fileset.Len())
-		} else {
-			require.ErrorIs(t, err, expectedErr)
-		}
-	}
+func TestExact(t *testing.T) {
+	set := New[*reader.Reader](fingerprint.DefaultSize)
+
+	set.Add(newReader(fpABCDEF))
+	assert.Nil(t, set.MatchExact(fpABC), "should not match prefixes")
+	assert.Equal(t, 1, set.Len(), "failed match should not remove element from the set")
+	assert.Equal(t, fpABCDEF, set.MatchExact(fpABCDEF).Fingerprint, "should return the reader with the exact fingerprint")
+	assert.Equal(t, 0, set.Len(), "should remove the reader from the set")
+	assert.Nil(t, set.MatchExact(fpABCDEF), "should return nil after the reader is removed")
+
+	set.Add(newReader(fpABC))
+	assert.Nil(t, set.MatchExact(fpABCDEF), "should not match prefixes")
+	assert.Equal(t, 1, set.Len(), "failed match should not remove element from the set")
+	assert.Equal(t, fpABC, set.MatchExact(fpABC).Fingerprint, "should find the exact match")
+	assert.Equal(t, 0, set.Len(), "should remove the reader from the set")
+	assert.Nil(t, set.MatchExact(fpABC), "should return nil after the reader is removed")
 }
 
-func match[T Matchable](ele T, expect bool) func(t *testing.T, fileset *Fileset[T]) {
-	return func(t *testing.T, fileset *Fileset[T]) {
-		pr := fileset.Len()
-		r := fileset.Match(ele.GetFingerprint(), StartsWith)
-		if expect {
-			require.NotNil(t, r)
-			require.Equal(t, pr-1, fileset.Len())
-		} else {
-			require.Nil(t, r)
-			require.Equal(t, pr, fileset.Len())
-		}
+func TestMatchPrefix(t *testing.T) {
+	set := New[*reader.Reader](fingerprint.DefaultSize)
 
-	}
+	set.Add(newReader(fpABCDEF))
+	assert.Nil(t, set.MatchPrefix(fpABC), "should NOT match when parameter is prefix of element")
+	assert.Equal(t, 1, set.Len(), "failed match should not remove element from the set")
+
+	assert.Equal(t, fpABCDEF, set.MatchPrefix(fpABCDEF).Fingerprint, "should return the reader with the exact fingerprint")
+	assert.Equal(t, 0, set.Len(), "should remove the reader from the set")
+
+	set.Add(newReader(fpABC))
+	assert.Equal(t, fpABC, set.MatchPrefix(fpABCDEF).Fingerprint, "should return the reader with the matching prefix")
+	assert.Equal(t, 0, set.Len(), "successful match should remove element from the set")
 }
 
-func newReader(bytes []byte) *reader.Reader {
-	return &reader.Reader{
-		Metadata: &reader.Metadata{
-			Fingerprint: fingerprint.New(bytes),
-		},
-	}
+func TestMatchPrefixReturnsLongest(t *testing.T) {
+	// Test when shorter inserted first
+	set := New[*reader.Reader](fingerprint.DefaultSize)
+	set.Add(newReader(fpABC))
+	set.Add(newReader(fpABCDEF))
+	assert.Equal(t, fpABCDEF, set.MatchPrefix(fpABCDEFGHI).Fingerprint, "should return the longest match")
+	assert.Equal(t, fpABC, set.MatchPrefix(fpABCDEFGHI).Fingerprint, "should return the longest match")
+	assert.Equal(t, 0, set.Len(), "should have removed the readers from the set")
+
+	// Test when longer inserted first
+	set = New[*reader.Reader](fingerprint.DefaultSize)
+	set.Add(newReader(fpABCDEF))
+	set.Add(newReader(fpABC))
+	assert.Equal(t, fpABCDEF, set.MatchPrefix(fpABCDEFGHI).Fingerprint, "should return the longest match")
+	assert.Equal(t, fpABC, set.MatchPrefix(fpABCDEFGHI).Fingerprint, "should return the longest match")
+	assert.Equal(t, 0, set.Len(), "should have removed the readers from the set")
 }
 
-func TestFilesetReader(t *testing.T) {
-	testCases := []test[*reader.Reader]{
-		{
-			name: "test_match_push_reset",
-			ops: []func(t *testing.T, fileset *Fileset[*reader.Reader]){
-				push(newReader([]byte("ABCDEF")), newReader([]byte("QWERT"))),
-
-				// match() removes the matched item and returns it
-				match(newReader([]byte("ABCDEFGHI")), true),
-				match(newReader([]byte("ABCDEFGHI")), false),
-
-				push(newReader([]byte("XYZ"))),
-				match(newReader([]byte("ABCDEF")), false),
-				match(newReader([]byte("QWERT")), true), // should still be present
-				match(newReader([]byte("XYZabc")), true),
-				pop(errFilesetEmpty, newReader([]byte(""))),
-			},
-		},
-		{
-			name: "test_pop",
-			ops: []func(t *testing.T, fileset *Fileset[*reader.Reader]){
-				push(newReader([]byte("ABCDEF")), newReader([]byte("QWERT"))),
-				pop(nil, newReader([]byte("ABCDEF"))),
-				pop(nil, newReader([]byte("QWERT"))),
-				pop(errFilesetEmpty, newReader([]byte(""))),
-
-				push(newReader([]byte("XYZ"))),
-				pop(nil, newReader([]byte("XYZ"))),
-				pop(errFilesetEmpty, newReader([]byte(""))),
-			},
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			tc.init()
-			for _, op := range tc.ops {
-				op(t, tc.fileset)
-			}
-		})
-	}
+func newReader(fp *fingerprint.Fingerprint) *reader.Reader {
+	return &reader.Reader{Metadata: &reader.Metadata{Fingerprint: fp}}
 }

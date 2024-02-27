@@ -20,6 +20,13 @@ func testManager(t *testing.T, cfg *Config) (*Manager, *emittest.Sink) {
 func testManagerWithSink(t *testing.T, cfg *Config, sink *emittest.Sink) *Manager {
 	input, err := cfg.Build(testutil.Logger(t), sink.Callback)
 	require.NoError(t, err)
-	t.Cleanup(func() { input.closePreviousFiles() })
+	t.Cleanup(func() {
+		for _, f := range input.currentPollFiles.All() {
+			f.Close()
+		}
+		for _, f := range input.previousPollFiles.All() {
+			f.Close()
+		}
+	})
 	return input
 }

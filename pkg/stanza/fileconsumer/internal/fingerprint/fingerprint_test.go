@@ -183,6 +183,12 @@ func TestLen(t *testing.T) {
 	require.Equal(t, 10, New([]byte("helloworld")).Len())
 }
 
+func TestHash(t *testing.T) {
+	require.Equal(t, New([]byte("hello")).Hash(), New([]byte("hello")).Hash())
+	require.Equal(t, New([]byte("world")).Hash(), New([]byte("world")).Hash())
+	require.NotEqual(t, New([]byte("hello")).Hash(), New([]byte("world")).Hash())
+}
+
 func TestTruncate(t *testing.T) {
 	fp := New([]byte("hello"))
 	require.Equal(t, "hello", string(fp.firstBytes))

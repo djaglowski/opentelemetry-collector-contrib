@@ -168,7 +168,7 @@ func (c Config) buildManager(logger *zap.SugaredLogger, emit emit.Callback, spli
 	}
 	knownFiles := make([]*fileset.Fileset[*reader.Metadata], 3)
 	for i := 0; i < len(knownFiles); i++ {
-		knownFiles[i] = fileset.New[*reader.Metadata](c.MaxConcurrentFiles / 2)
+		knownFiles[i] = fileset.New[*reader.Metadata](int(c.FingerprintSize))
 	}
 	return &Manager{
 		SugaredLogger:     logger.With("component", "fileconsumer"),
@@ -177,8 +177,8 @@ func (c Config) buildManager(logger *zap.SugaredLogger, emit emit.Callback, spli
 		pollInterval:      c.PollInterval,
 		maxBatchFiles:     c.MaxConcurrentFiles / 2,
 		maxBatches:        c.MaxBatches,
-		currentPollFiles:  fileset.New[*reader.Reader](c.MaxConcurrentFiles / 2),
-		previousPollFiles: fileset.New[*reader.Reader](c.MaxConcurrentFiles / 2),
+		currentPollFiles:  fileset.New[*reader.Reader](int(c.FingerprintSize)),
+		previousPollFiles: fileset.New[*reader.Reader](int(c.FingerprintSize)),
 		knownFiles:        knownFiles,
 	}, nil
 }
