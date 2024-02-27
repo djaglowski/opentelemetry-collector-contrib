@@ -21,7 +21,7 @@ var (
 )
 
 func TestEmpty(t *testing.T) {
-	set := New[*reader.Reader](fingerprint.DefaultSize)
+	set := New[*reader.Reader]()
 	assert.Equal(t, 0, set.Len())
 
 	assert.Nil(t, set.MatchExact(fpEmpty), "empty set should have no matches")
@@ -36,7 +36,7 @@ func TestEmpty(t *testing.T) {
 }
 
 func TestAdd(t *testing.T) {
-	set := New[*reader.Reader](fingerprint.DefaultSize)
+	set := New[*reader.Reader]()
 
 	set.Add(newReader(fpABCDEF))
 	assert.Equal(t, 1, set.Len(), "dding a reader should increment the length")
@@ -58,7 +58,7 @@ func TestAdd(t *testing.T) {
 }
 
 func TestAll(t *testing.T) {
-	set := New[*reader.Reader](fingerprint.DefaultSize)
+	set := New[*reader.Reader]()
 	assert.Empty(t, set.All(), "empty set should return an empty slice")
 
 	set.Add(newReader(fpABC))
@@ -69,12 +69,11 @@ func TestAll(t *testing.T) {
 	set.Add(newReader(fpABCDEF))
 	all = set.All()
 	assert.Equal(t, 2, len(all), "should not remove elements from the set")
-	assert.Equal(t, fpABC, all[0].GetFingerprint(), "returns set with shorter fingerprints first")
-	assert.Equal(t, fpABCDEF, all[1].GetFingerprint(), "returns set with shorter fingerprints first")
+	assert.NotEqual(t, all[0].GetFingerprint(), all[1].GetFingerprint(), "returns set with distinct fingerprints")
 }
 
 func TestExact(t *testing.T) {
-	set := New[*reader.Reader](fingerprint.DefaultSize)
+	set := New[*reader.Reader]()
 
 	set.Add(newReader(fpABCDEF))
 	assert.Nil(t, set.MatchExact(fpABC), "should not match prefixes")
@@ -92,7 +91,7 @@ func TestExact(t *testing.T) {
 }
 
 func TestMatchPrefix(t *testing.T) {
-	set := New[*reader.Reader](fingerprint.DefaultSize)
+	set := New[*reader.Reader]()
 
 	set.Add(newReader(fpABCDEF))
 	assert.Nil(t, set.MatchPrefix(fpABC), "should NOT match when parameter is prefix of element")
@@ -108,7 +107,7 @@ func TestMatchPrefix(t *testing.T) {
 
 func TestMatchPrefixReturnsLongest(t *testing.T) {
 	// Test when shorter inserted first
-	set := New[*reader.Reader](fingerprint.DefaultSize)
+	set := New[*reader.Reader]()
 	set.Add(newReader(fpABC))
 	set.Add(newReader(fpABCDEF))
 	assert.Equal(t, fpABCDEF, set.MatchPrefix(fpABCDEFGHI).Fingerprint, "should return the longest match")
@@ -116,7 +115,7 @@ func TestMatchPrefixReturnsLongest(t *testing.T) {
 	assert.Equal(t, 0, set.Len(), "should have removed the readers from the set")
 
 	// Test when longer inserted first
-	set = New[*reader.Reader](fingerprint.DefaultSize)
+	set = New[*reader.Reader]()
 	set.Add(newReader(fpABCDEF))
 	set.Add(newReader(fpABC))
 	assert.Equal(t, fpABCDEF, set.MatchPrefix(fpABCDEFGHI).Fingerprint, "should return the longest match")

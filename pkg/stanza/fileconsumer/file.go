@@ -77,7 +77,7 @@ func (m *Manager) rotateFilesets() {
 	// shift the filesets at end of every consume() call
 	// m.knownFiles[0] -> m.knownFiles[1] -> m.knownFiles[2]
 	copy(m.knownFiles[1:], m.knownFiles)
-	m.knownFiles[0] = fileset.New[*reader.Metadata](m.readerFactory.FingerprintSize)
+	m.knownFiles[0] = fileset.New[*reader.Metadata]()
 }
 
 // Stop will stop the file monitoring process
@@ -216,7 +216,7 @@ func (m *Manager) makeFingerprint(path string) (*fingerprint.Fingerprint, *os.Fi
 // discarding any that have a duplicate fingerprint to other files that have already
 // been read this polling interval
 func (m *Manager) makeReaders(paths []string) {
-	m.currentPollFiles = fileset.New[*reader.Reader](m.readerFactory.FingerprintSize)
+	m.currentPollFiles = fileset.New[*reader.Reader]()
 	for _, path := range paths {
 		fp, file := m.makeFingerprint(path)
 		if fp == nil {
