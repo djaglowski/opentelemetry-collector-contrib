@@ -6,8 +6,12 @@ package adapter
 import (
 	"context"
 	"errors"
+	"time"
 
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/consumer"
+	"go.opentelemetry.io/collector/consumer/consumertest"
+	"go.opentelemetry.io/collector/pdata/plog"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/entry"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/operator"
@@ -84,4 +88,23 @@ func (f TestReceiverType) BaseConfig(cfg component.Config) BaseConfig {
 
 func (f TestReceiverType) InputConfig(cfg component.Config) operator.Config {
 	return cfg.(*TestConfig).Input
+}
+
+var _ consumer.Logs = (*blockingConsumer)(nil)
+
+type blockingConsumer struct {
+	blockTime time.Duration
+	consumertest.LogsSink
+}
+
+func (bc *blockingConsumer) ConsumeLogs(ctx context.Context, ld plog.Logs) error {
+	// We don't necessarily need to block forever, but do block long enough to create test scenarios
+	time.Sleep(bc.blockTime)
+	return bc.LogsSink.ConsumeLogs(ctx, ld)
+}
+
+func newBlockingConsumer(blockTime time.Duration) *blockingConsumer {
+	return &blockingConsumer{
+		blockTime: blockTime,
+	}
 }

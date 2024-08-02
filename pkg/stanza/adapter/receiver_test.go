@@ -120,6 +120,31 @@ func TestHandleConsumeRetry(t *testing.T) {
 	require.NoError(t, logsReceiver.Shutdown(context.Background()))
 }
 
+func TestHandleShutdownWithBlockedConsumer(t *testing.T) {
+	blockTime := 10 * time.Second
+	mockConsumer := newBlockingConsumer(blockTime)
+	factory := NewFactory(TestReceiverType{}, component.StabilityLevelDevelopment)
+
+	cfg := factory.CreateDefaultConfig()
+	cfg.(*TestConfig).BaseConfig.RetryOnFailure.Enabled = true
+	cfg.(*TestConfig).BaseConfig.RetryOnFailure.InitialInterval = 10 * time.Millisecond
+	logsReceiver, err := factory.CreateLogsReceiver(context.Background(), receivertest.NewNopSettings(), cfg, mockConsumer)
+	require.NoError(t, err, "receiver should successfully build")
+
+	require.NoError(t, logsReceiver.Start(context.Background(), componenttest.NewNopHost()))
+
+	stanzaReceiver := logsReceiver.(*receiver)
+	go func(r *receiver) {
+		// Write a log, this will be stuck in the consumer
+		logChan := r.emitter.OutChannelForWrite()
+		logChan <- []*entry.Entry{entry.New()}
+	}(stanzaReceiver)
+
+	require.Zero(t, mockConsumer.LogRecordCount(), "no log should be consumed yet")
+
+	require.NoError(t, logsReceiver.Shutdown(context.Background()))
+}
+
 func BenchmarkReadLine(b *testing.B) {
 	filePath := filepath.Join(b.TempDir(), "bench.log")
 
