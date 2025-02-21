@@ -1,0 +1,4 @@
+log_statements:
+  - set(log.attributes["dynamic"], "after")
+  - set(log.attributes["hello"], "world")
+  - set(log.attributes["two"], "two")

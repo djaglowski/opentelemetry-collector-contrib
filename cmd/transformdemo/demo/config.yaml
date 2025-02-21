@@ -1,0 +1,38 @@
+receivers:
+  filelog:
+    start_at: beginning
+    include: ./demo/in/*
+
+processors:
+  transform:
+    opamp: opamp
+    error_mode: ignore
+    log_statements:
+      - set(log.attributes["dynamic"], "before")
+
+exporters:
+  file:
+    path: ./demo/out/out.json
+
+extensions:
+  opamp:
+    server:
+      ws:
+        endpoint: ws://127.0.0.1:4320/ws
+        tls:
+          insecure: true
+    capabilities:
+      reports_effective_config: false
+      reports_health: true
+
+service:
+  # telemetry:
+  #   logs:
+  #     level: debug
+  #     development: true
+  extensions: [opamp]
+  pipelines:
+    logs:
+      receivers: [filelog]
+      processors: [transform]
+      exporters: [file]

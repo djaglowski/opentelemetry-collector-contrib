@@ -39,12 +39,15 @@ type Config struct {
 	// The default value is `propagate`.
 	ErrorMode ottl.ErrorMode `mapstructure:"error_mode"`
 
+	// OpAMP is the component ID of the OpAMP extension to use for dynamic configuration updates.
+	// If not specified, dynamic configuration updates are disabled.
+	OpAMP *component.ID `mapstructure:"opamp"`
+
 	TraceStatements  []common.ContextStatements `mapstructure:"trace_statements"`
 	MetricStatements []common.ContextStatements `mapstructure:"metric_statements"`
 	LogStatements    []common.ContextStatements `mapstructure:"log_statements"`
 
 	FlattenData bool `mapstructure:"flatten_data"`
-	logger      *zap.Logger
 }
 
 // Unmarshal is used internally by mapstructure to parse the transformprocessor configuration (Config),
